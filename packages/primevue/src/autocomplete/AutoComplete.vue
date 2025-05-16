@@ -1,39 +1,70 @@
 <template>
     <div ref="container" :class="cx('root')" :style="sx('root')" @click="onContainerClick" :data-p="containerDataP" v-bind="ptmi('root')">
-        <InputText
+        <InputGroup
             v-if="!multiple"
-            ref="focusInput"
-            :id="inputId"
-            type="text"
-            :name="$formName"
-            :class="[cx('pcInputText'), inputClass]"
-            :style="inputStyle"
-            :defaultValue="inputValue"
-            :placeholder="placeholder"
-            :tabindex="!disabled ? tabindex : -1"
-            :fluid="$fluid"
-            :disabled="disabled"
-            :size="size"
-            :invalid="invalid"
-            :variant="variant"
-            autocomplete="off"
-            role="combobox"
-            :aria-label="ariaLabel"
-            :aria-labelledby="ariaLabelledby"
-            aria-haspopup="listbox"
-            aria-autocomplete="list"
-            :aria-expanded="overlayVisible"
-            :aria-controls="panelId"
-            :aria-activedescendant="focused ? focusedOptionId : undefined"
-            @focus="onFocus"
-            @blur="onBlur"
-            @keydown="onKeyDown"
-            @input="onInput"
-            @change="onChange"
-            :unstyled="unstyled"
-            :data-p-has-dropdown="dropdown"
-            :pt="ptm('pcInputText')"
-        />
+            :pt="{
+                root: {
+                    class: 'rounded-0'
+                }
+            }"
+        >
+            <InputGroupAddon v-if="$slots.leading && !multiple && selectedOption">
+                <slot name="leading" :value="d_value" />
+            </InputGroupAddon>
+            <InputText
+                ref="focusInput"
+                :id="inputId"
+                type="text"
+                :name="$formName"
+                :class="[cx('pcInputText'), inputClass]"
+                :style="inputStyle"
+                :defaultValue="inputValue"
+                :placeholder="placeholder"
+                :tabindex="!disabled ? tabindex : -1"
+                :fluid="$fluid"
+                :disabled="disabled"
+                :size="size"
+                :invalid="invalid"
+                :variant="variant"
+                autocomplete="off"
+                role="combobox"
+                :aria-label="ariaLabel"
+                :aria-labelledby="ariaLabelledby"
+                aria-haspopup="listbox"
+                aria-autocomplete="list"
+                :aria-expanded="overlayVisible"
+                :aria-controls="panelId"
+                :aria-activedescendant="focused ? focusedOptionId : undefined"
+                @focus="onFocus"
+                @blur="onBlur"
+                @keydown="onKeyDown"
+                @input="onInput"
+                @change="onChange"
+                :unstyled="unstyled"
+                :data-p-has-dropdown="dropdown"
+                :pt="ptm('pcInputText')"
+            />
+            <InputGroupAddon v-if="dropdown">
+                <slot :name="$slots.dropdown ? 'dropdown' : 'dropdownbutton'" :toggleCallback="(event) => onDropdownClick(event)">
+                    <Button
+                        v-if="dropdown"
+                        ref="dropdownButton"
+                        severity="secondary"
+                        :class="[dropdownClass, 'h-full']"
+                        :disabled="disabled"
+                        aria-haspopup="listbox"
+                        :aria-expanded="overlayVisible"
+                        :aria-controls="panelId"
+                        @click="onDropdownClick"
+                        v-bind="ptm('dropdown')"
+                    >
+                        <slot name="dropdownicon" :class="dropdownIcon">
+                            <component :is="dropdownIcon ? 'span' : 'ChevronDownIcon'" :class="dropdownIcon" v-bind="ptm('dropdownIcon')" />
+                        </slot>
+                    </Button>
+                </slot>
+            </InputGroupAddon>
+        </InputGroup>
         <ul
             v-if="multiple"
             ref="multiContainer"
@@ -73,6 +104,10 @@
                         :data-p-focused="focusedMultipleOptionIndex === i"
                         :pt="ptm('pcChip')"
                     >
+                        <template v-if="$slots['chip-content']" #default>
+                            <slot name="chip-content" :value="option" :index="i" :removeCallback="(event) => removeOption(event, i)" />
+                        </template>
+
                         <template #removeicon>
                             <slot :name="$slots.chipicon ? 'chipicon' : 'removetokenicon'" :class="cx('chipIcon')" :index="i" :removeCallback="(event) => removeOption(event, i)" />
                         </template>
@@ -112,7 +147,7 @@
             <i v-if="loader || loadingIcon" :class="['pi-spin', cx('loader'), loader, loadingIcon]" aria-hidden="true" :data-p-has-dropdown="dropdown" v-bind="ptm('loader')" />
             <SpinnerIcon v-else :class="cx('loader')" spin aria-hidden="true" :data-p-has-dropdown="dropdown" v-bind="ptm('loader')" />
         </slot>
-        <slot :name="$slots.dropdown ? 'dropdown' : 'dropdownbutton'" :toggleCallback="(event) => onDropdownClick(event)">
+        <slot v-if="multiple" :name="$slots.dropdown ? 'dropdown' : 'dropdownbutton'" :toggleCallback="(event) => onDropdownClick(event)">
             <button
                 v-if="dropdown"
                 ref="dropdownButton"
@@ -212,7 +247,10 @@ import { ZIndex } from '@primeuix/utils/zindex';
 import { ConnectedOverlayScrollHandler } from '@primevue/core/utils';
 import ChevronDownIcon from '@primevue/icons/chevrondown';
 import SpinnerIcon from '@primevue/icons/spinner';
+import Button from 'primevue/button';
 import Chip from 'primevue/chip';
+import InputGroup from 'primevue/inputgroup';
+import InputGroupAddon from 'primevue/inputgroupaddon';
 import InputText from 'primevue/inputtext';
 import OverlayEventBus from 'primevue/overlayeventbus';
 import Portal from 'primevue/portal';
@@ -1111,6 +1149,10 @@ export default {
                 empty: !this.$filled,
                 [this.size]: this.size
             });
+        },
+        selectedOption() {
+            const selectedIndex = this.findSelectedOptionIndex();
+            return selectedIndex !== -1 ? this.visibleOptions[selectedIndex] : null;
         }
     },
     components: {

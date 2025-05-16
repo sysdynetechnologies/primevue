@@ -23,6 +23,8 @@ import GroupDoc from '@/doc/autocomplete/GroupDoc.vue';
 import IftaLabelDoc from '@/doc/autocomplete/IftaLabelDoc.vue';
 import ImportDoc from '@/doc/autocomplete/ImportDoc.vue';
 import InvalidDoc from '@/doc/autocomplete/InvalidDoc.vue';
+import LeadingDoc from '@/doc/autocomplete/LeadingDoc.vue';
+import LeadingMultipleDoc from '@/doc/autocomplete/LeadingMultipleDoc.vue';
 import MultipleDoc from '@/doc/autocomplete/MultipleDoc.vue';
 import ObjectsDoc from '@/doc/autocomplete/ObjectsDoc.vue';
 import SizesDoc from '@/doc/autocomplete/SizesDoc.vue';
@@ -104,6 +106,16 @@ export default {
                     id: 'multiple',
                     label: 'Multiple',
                     component: MultipleDoc
+                },
+                {
+                    id: 'leading',
+                    label: 'Leading',
+                    component: LeadingDoc
+                },
+                {
+                    id: 'leading-multiple',
+                    label: 'Leading Multiple',
+                    component: LeadingMultipleDoc
                 },
                 {
                     id: 'invalid',
