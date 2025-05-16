@@ -22,6 +22,10 @@ const css = ({ dt }) => `
     overflow: hidden;
     padding-right: ${dt('scrollbar.width')};
 }
+
+.p-autocomplete-leading {
+    padding: ${dt('autocomplete.padding.y')} 0 ${dt('autocomplete.padding.y')} ${dt('autocomplete.padding.x')};
+}
 `;
 
 const classes = {};
