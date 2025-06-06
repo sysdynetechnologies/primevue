@@ -8,8 +8,8 @@
                 }
             }"
         >
-            <InputGroupAddon v-if="$slots.leading && !multiple && selectedOption">
-                <slot name="leading" :value="d_value" />
+            <InputGroupAddon v-if="$slots.leading && !multiple && (selectedOption || lastSelectedValue)">
+                <slot name="leading" :value="hasInternalDisplayValue && lastSelectedValue ? lastSelectedValue : d_value" />
             </InputGroupAddon>
             <InputText
                 ref="focusInput"
@@ -281,7 +281,10 @@ export default {
             focusedOptionIndex: -1,
             focusedMultipleOptionIndex: -1,
             overlayVisible: false,
-            searching: false
+            searching: false,
+            internalDisplayValue: '',
+            hasInternalDisplayValue: false,
+            lastSelectedValue: null
         };
     },
     watch: {
@@ -294,10 +297,21 @@ export default {
             }
 
             this.autoUpdateModel();
+        },
+        d_value: {
+            handler(newValue) {
+                // Update last selected value when the model value changes externally
+                if (!this.hasInternalDisplayValue) {
+                    this.lastSelectedValue = newValue;
+                }
+            },
+            immediate: true
         }
     },
     mounted() {
         this.autoUpdateModel();
+        // Initialize last selected value
+        this.lastSelectedValue = this.d_value;
     },
     updated() {
         if (this.overlayVisible) {
@@ -372,6 +386,27 @@ export default {
                 this.clicked = false;
                 this.focusedOptionIndex = -1;
 
+                // Reset internal display state when hiding overlay
+                // Only clear selection if user actually lost focus (not just hiding overlay while typing)
+                if (!this.multiple && this.hasInternalDisplayValue && !isFocus && !this.focused) {
+                    const currentInputValue = this.multiple ? this.$refs.focusInput?.value : this.$refs.focusInput?.$el?.value;
+
+                    if (currentInputValue?.length === 0) {
+                        if (this.forceSelection && this.lastSelectedValue !== null) {
+                            // With forceSelection and previous value, revert instead of clearing
+                            this.updateModel(null, this.lastSelectedValue);
+                        } else {
+                            // Without forceSelection or no previous value, allow clearing
+                            this.updateModel(null, null);
+                            this.lastSelectedValue = null;
+                        }
+                    } else {
+                        // If hiding but not due to focus loss, reset to last selected value
+                        this.updateModel(null, this.lastSelectedValue);
+                    }
+                    this.resetInternalDisplayState();
+                }
+
                 isFocus && focus(this.multiple ? this.$refs.focusInput : this.$refs.focusInput?.$el);
             };
 
@@ -383,6 +418,12 @@ export default {
             if (this.disabled) {
                 // For ScreenReaders
                 return;
+            }
+
+            // Initialize internal display state on focus for non-multiple mode
+            if (!this.multiple && !this.hasInternalDisplayValue) {
+                this.lastSelectedValue = this.d_value;
+                this.internalDisplayValue = this.inputValue;
             }
 
             if (!this.dirty && this.completeOnFocus) {
@@ -403,6 +444,38 @@ export default {
             this.dirty = false;
             this.focused = false;
             this.focusedOptionIndex = -1;
+
+            // Handle internal display value reset for non-multiple mode
+            if (!this.multiple && this.hasInternalDisplayValue) {
+                const currentDisplayValue = event.target.value;
+
+                // If user cleared everything, decide based on forceSelection
+                if (currentDisplayValue.length === 0) {
+                    if (this.forceSelection && this.lastSelectedValue !== null) {
+                        // With forceSelection and previous value, revert instead of clearing
+                        this.updateModel(event, this.lastSelectedValue);
+                        this.resetInternalDisplayState();
+                    } else {
+                        // Without forceSelection or no previous value, allow clearing
+                        this.updateModel(event, null);
+                        this.lastSelectedValue = null;
+                        this.resetInternalDisplayState();
+                    }
+                } else {
+                    // If user typed something, check if it matches an option
+                    const shouldRevert = !this.visibleOptions?.some((option) => this.isOptionMatched(option, currentDisplayValue)) || !this.forceSelection;
+
+                    if (shouldRevert) {
+                        // Revert to last selected value
+                        this.updateModel(event, this.lastSelectedValue);
+                        this.resetInternalDisplayState();
+                    } else {
+                        // Value matches an option, keep the current state
+                        this.resetInternalDisplayState();
+                    }
+                }
+            }
+
             this.$emit('blur', event);
             this.formField.onBlur?.();
         },
@@ -487,12 +560,19 @@ export default {
                 let query = event.target.value;
 
                 if (!this.multiple) {
+                    // For non-multiple mode, use internal display value instead of immediately updating model
+                    this.internalDisplayValue = query;
+                    this.hasInternalDisplayValue = true;
+                } else {
                     this.updateModel(event, query);
                 }
 
                 if (query.length === 0) {
                     this.hide();
                     this.$emit('clear');
+
+                    // When user clears input while focused, keep the selection intact
+                    // The actual clearing decision will be made on blur if they click outside
                 } else {
                     if (query.length >= this.minLength) {
                         this.focusedOptionIndex = -1;
@@ -517,7 +597,12 @@ export default {
 
                     if (matchedValue !== undefined) {
                         valid = true;
-                        !this.isSelected(matchedValue) && this.onOptionSelect(event, matchedValue);
+                        if (!this.isSelected(matchedValue)) {
+                            this.onOptionSelect(event, matchedValue);
+                        } else {
+                            // If already selected, just reset internal state
+                            this.resetInternalDisplayState();
+                        }
                     }
                 }
 
@@ -526,10 +611,15 @@ export default {
                         this.$refs.focusInput.value = '';
                     } else {
                         const inputEl = this.$refs.focusInput?.$el;
+                        const currentValue = inputEl?.value || '';
+
+                        // Don't immediately clear selection during onChange - let onBlur handle it
+                        // Just clear the input for now
                         inputEl && (inputEl.value = '');
                     }
                     this.$emit('clear');
-                    !this.multiple && this.updateModel(event, null);
+                    // Remove the immediate model update for non-multiple
+                    !this.multiple || this.updateModel(event, null);
                 }
             }
         },
@@ -607,7 +697,10 @@ export default {
                     this.updateModel(event, [...(this.d_value || []), value]);
                 }
             } else {
+                // For non-multiple, update both internal state and model
                 this.updateModel(event, value);
+                this.lastSelectedValue = value;
+                this.resetInternalDisplayState();
             }
 
             this.$emit('item-select', { originalEvent: event, value: option });
@@ -780,6 +873,14 @@ export default {
         },
         onEscapeKey(event) {
             this.overlayVisible && this.hide(true);
+
+            // Reset internal display state when pressing Escape
+            if (!this.multiple && this.hasInternalDisplayValue) {
+                // Always revert to last selected value on Escape, regardless of input content
+                this.updateModel(event, this.lastSelectedValue);
+                this.resetInternalDisplayState();
+            }
+
             event.preventDefault();
         },
         onTabKey(event) {
@@ -1066,6 +1167,10 @@ export default {
             }
 
             return matchedOptionIndex > -1 ? matchedOptionIndex : index;
+        },
+        resetInternalDisplayState() {
+            this.hasInternalDisplayValue = false;
+            this.internalDisplayValue = '';
         }
     },
     computed: {
@@ -1073,6 +1178,11 @@ export default {
             return this.optionGroupLabel ? this.flatOptions(this.suggestions) : this.suggestions || [];
         },
         inputValue() {
+            // Use internal display value when user is typing (for non-multiple mode)
+            if (!this.multiple && this.hasInternalDisplayValue) {
+                return this.internalDisplayValue;
+            }
+
             if (this.$filled) {
                 if (typeof this.d_value === 'object') {
                     const label = this.getOptionLabel(this.d_value);

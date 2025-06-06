@@ -6,13 +6,41 @@
         <AutoComplete v-model="value" :suggestions="items" @complete="search">
             <template #leading="{ value, placeholder }">
                 <div v-if="value" class="flex gap-2">
-                    <div class="w-2 rounded-full bg-green-600">&nbsp;</div>
+                    <div
+                        class="w-2 rounded-full"
+                        :class="{
+                            'bg-green-600': value.includes('0'),
+                            'bg-red-600': value.includes('1'),
+                            'bg-blue-600': value.includes('2'),
+                            'bg-yellow-600': value.includes('3'),
+                            'bg-purple-600': value.includes('4'),
+                            'bg-orange-600': value.includes('5'),
+                            'bg-pink-600': value.includes('6'),
+                            'bg-gray-600': value.includes('7')
+                        }"
+                    >
+                        &nbsp;
+                    </div>
                 </div>
                 <div v-else>{{ placeholder }}</div>
             </template>
             <template #option="{ option }">
                 <div class="flex gap-2">
-                    <div class="w-2 rounded-full bg-green-600">&nbsp;</div>
+                    <div
+                        class="w-2 rounded-full"
+                        :class="{
+                            'bg-green-600': option.includes('0'),
+                            'bg-red-600': option.includes('1'),
+                            'bg-blue-600': option.includes('2'),
+                            'bg-yellow-600': option.includes('3'),
+                            'bg-purple-600': option.includes('4'),
+                            'bg-orange-600': option.includes('5'),
+                            'bg-pink-600': option.includes('6'),
+                            'bg-gray-600': option.includes('7')
+                        }"
+                    >
+                        &nbsp;
+                    </div>
                     <div>{{ option }}</div>
                 </div>
             </template>
